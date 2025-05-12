@@ -4,7 +4,7 @@ import org.springframework.data.annotation.Id
 import java.util.UUID
 
 data class Product(
-    val id: String? = null,
+    val id: String,
     val name: String,
     val weight: Double,
     val type: ProductType,

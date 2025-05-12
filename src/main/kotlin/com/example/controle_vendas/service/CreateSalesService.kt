@@ -10,9 +10,10 @@ import com.example.controle_vendas.repository.SalesRepository
 import org.springframework.stereotype.Service
 import java.util.UUID
 
+
 @Service
 class CreateSalesService(
-    val salesRepository: SalesRepository
+    private val salesRepository: SalesRepository
 ) {
 
     fun createSale(request: SalesRequest): SalesResponse {
@@ -22,6 +23,14 @@ class CreateSalesService(
 
         val products = request.products.map { productRequest ->
 
+            // Validação comum para todos os tipos
+            if (productRequest.name.isBlank()) {
+                throw IllegalArgumentException("O nome do produto é obrigatório")
+            }
+            if (productRequest.weight <= 0) {
+                throw IllegalArgumentException("O peso do produto deve ser maior que 0")
+            }
+
             when (productRequest.type) {
                 ProductType.VENDA -> {
                     if (productRequest.expectedPrice == null || productRequest.expectedPrice <= 0) {
@@ -30,14 +39,19 @@ class CreateSalesService(
                     if (productRequest.soldPrice == null || productRequest.soldPrice <= 0) {
                         throw IllegalArgumentException("Para tipo 'VENDA', soldPrice deve ser maior que 0")
                     }
+                    if (productRequest.reason.isNullOrBlank()) {
+                        throw IllegalArgumentException("Para tipo 'VENDA', reason é obrigatório")
+                    }
                 }
+
                 ProductType.BONIFICACAO -> {
                     if (productRequest.expectedPrice != null || productRequest.soldPrice != null || productRequest.reason != null) {
                         throw IllegalArgumentException("Para tipo 'BONIFICACAO', expectedPrice, soldPrice e reason devem ser nulos")
                     }
                 }
+
                 ProductType.DEVOLUCAO -> {
-                    if (productRequest.reason == null || productRequest.reason.isBlank()) {
+                    if (productRequest.reason.isNullOrBlank()) {
                         throw IllegalArgumentException("Para tipo 'DEVOLUCAO', reason é obrigatório")
                     }
                     if (productRequest.expectedPrice != null || productRequest.soldPrice != null) {
@@ -47,12 +61,13 @@ class CreateSalesService(
             }
 
             Product(
+                id = UUID.randomUUID().toString(), // <-- importante!
                 name = productRequest.name,
                 weight = productRequest.weight,
                 type = productRequest.type,
                 expectedPrice = productRequest.expectedPrice,
                 soldPrice = productRequest.soldPrice,
-                reason = productRequest.reason
+                reason = productRequest.reason,
             )
         }
 
@@ -97,9 +112,8 @@ class CreateSalesService(
         )
     }
 
-    //lembrar de apagar depois
+    // Apenas para testes
     fun deleteAllSales() {
         salesRepository.deleteAll()
     }
-
 }

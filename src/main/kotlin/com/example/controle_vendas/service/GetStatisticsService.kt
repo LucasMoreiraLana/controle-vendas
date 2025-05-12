@@ -9,17 +9,17 @@ import org.springframework.stereotype.Service
 import kotlin.math.round
 
 data class StatisticResult(
-    val averageWeight: Double?,
-    val averageExpectedPrice: Double?,
-    val averageSoldPrice: Double?,
-    val totalExpectedPrice: Double?,
-    val totalSoldPrice: Double?,
-    val totalSales: Long?
+    val averageWeight: Double = 0.0,
+    val averageExpectedPrice: Double = 0.0,
+    val averageSoldPrice: Double = 0.0,
+    val totalExpectedPrice: Double = 0.0,
+    val totalSoldPrice: Double = 0.0,
+    val totalSales: Long = 0
 )
 
 data class ProfitResult(
-    val productName: String,
-    val totalProfit: Double?
+    val productName: String? = null,
+    val totalProfit: Double? = null
 )
 
 @Service
@@ -46,7 +46,7 @@ class GetStatisticsService(
         if (startDate > endDate) {
             throw IllegalArgumentException("startDate não pode ser posterior a endDate")
         }
-        
+
         val countAggregation = Aggregation.newAggregation(
             Aggregation.match(
                 Criteria.where("date").gte(startDate).lte(endDate)
@@ -55,8 +55,8 @@ class GetStatisticsService(
         )
 
         val countResults: AggregationResults<StatisticResult> = mongoTemplate.aggregate(countAggregation, "sales", StatisticResult::class.java)
-        val countResult = countResults.uniqueMappedResult ?: StatisticResult(null, null, null, null, null, 0L)
-        val totalSales = countResult.totalSales ?: 0L
+        val countResult = countResults.uniqueMappedResult ?: StatisticResult()
+        val totalSales = countResult.totalSales
 
         val statsAggregation = Aggregation.newAggregation(
             Aggregation.match(
@@ -72,9 +72,9 @@ class GetStatisticsService(
         )
 
         val statsResults: AggregationResults<StatisticResult> = mongoTemplate.aggregate(statsAggregation, "sales", StatisticResult::class.java)
-        val statsResult = statsResults.uniqueMappedResult ?: StatisticResult(null, null, null, null, null, null)
+        val statsResult = statsResults.uniqueMappedResult ?: StatisticResult()
 
-        val totalProfit = (statsResult.totalSoldPrice ?: 0.0) - (statsResult.totalExpectedPrice ?: 0.0)
+        val totalProfit = statsResult.totalSoldPrice - statsResult.totalExpectedPrice
 
         // Obter lucros por produto
         val profitAggregation = Aggregation.newAggregation(
@@ -87,7 +87,7 @@ class GetStatisticsService(
             ),
             Aggregation.project()
                 .and("products.name").`as`("productName")
-                .andExpression("(products.expectedPrice - products.soldPrice) * products.weight").`as`("profitPerUnit"),
+                .andExpression("(products.soldPrice - products.expectedPrice) * products.weight").`as`("profitPerUnit"),
             Aggregation.group("productName")
                 .sum("profitPerUnit").`as`("totalProfit")
                 .first("productName").`as`("productName")
@@ -95,21 +95,21 @@ class GetStatisticsService(
 
         val profitResults: AggregationResults<ProfitResult> = mongoTemplate.aggregate(profitAggregation, "sales", ProfitResult::class.java)
         val productProfits = profitResults.mappedResults.map { result ->
-            val productName = result.productName as String
-            val totalProfit = result.totalProfit as Double? ?: 0.0
-            val roundedProfit = round(totalProfit * 100) / 100
+            val name = result.productName ?: "Desconhecido"
+            val profit = result.totalProfit ?: 0.0
+            val rounded = round(profit * 100) / 100
             StatisticsResponse.ProductProfit(
-                productName = productName,
-                totalProfit = -roundedProfit
+                productName = name,
+                totalProfit = rounded
             )
         }
 
         return StatisticsResponse(
-            averageWeight = statsResult.averageWeight ?: 0.0,
-            averageExpectedPrice = statsResult.averageExpectedPrice ?: 0.0,
-            averageSoldPrice = statsResult.averageSoldPrice ?: 0.0,
-            totalExpectedPrice = statsResult.totalExpectedPrice ?: 0.0,
-            totalSoldPrice = statsResult.totalSoldPrice ?: 0.0,
+            averageWeight = statsResult.averageWeight,
+            averageExpectedPrice = statsResult.averageExpectedPrice,
+            averageSoldPrice = statsResult.averageSoldPrice,
+            totalExpectedPrice = statsResult.totalExpectedPrice,
+            totalSoldPrice = statsResult.totalSoldPrice,
             totalSales = totalSales,
             totalProfit = totalProfit,
             productProfits = productProfits
