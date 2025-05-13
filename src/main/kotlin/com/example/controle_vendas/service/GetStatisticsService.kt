@@ -12,7 +12,7 @@ data class StatisticResult(
     val averageWeight: Double = 0.0,
     val averageExpectedPrice: Double = 0.0,
     val averageSoldPrice: Double = 0.0,
-    val totalExpectedPrice: Double = 0.0,
+    val totalExpectedPrice: Double = 0.0,  // ← Corrigido: antes era Double?
     val totalSoldPrice: Double = 0.0,
     val totalSales: Long = 0
 )
@@ -74,9 +74,9 @@ class GetStatisticsService(
         val statsResults: AggregationResults<StatisticResult> = mongoTemplate.aggregate(statsAggregation, "sales", StatisticResult::class.java)
         val statsResult = statsResults.uniqueMappedResult ?: StatisticResult()
 
+        // Corrigido aqui ↓
         val totalProfit = statsResult.totalSoldPrice - statsResult.totalExpectedPrice
 
-        // Obter lucros por produto
         val profitAggregation = Aggregation.newAggregation(
             Aggregation.match(
                 Criteria.where("date").gte(startDate).lte(endDate)
